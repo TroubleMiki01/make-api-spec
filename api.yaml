@@ -1,0 +1,310 @@
+openapi: 3.0.3
+info:
+  title: Make.com Scenarios API
+  version: "1.0.0"
+  description: >
+    Official-style specification to manage and execute scenarios on Make.com.
+
+servers:
+  - url: https://eu2.make.com/api/v2
+    description: Regional Make API server
+    variables:
+      region:
+        description: Region subdomain (eu1 or us1)
+        enum:
+          - eu1
+          - us1
+        default: eu1
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Scenarios
+    description: Operations for creating, updating, activating and executing scenarios.
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+
+  schemas:
+    Scenario:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 925
+        name:
+          type: string
+          example: New scenario
+        teamId:
+          type: integer
+          example: 215
+        folderId:
+          type: integer
+          nullable: true
+          example: 1
+        isActive:
+          type: boolean
+          example: false
+        description:
+          type: string
+          nullable: true
+        created:
+          type: string
+          format: date-time
+          example: "2025-07-22T10:00:00Z"
+
+    ScenarioList:
+      type: object
+      properties:
+        scenarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scenario'
+        pg:
+          type: object
+          description: Pagination object returned by Make.
+          additionalProperties: true
+
+    ScenarioCreateRequest:
+      type: object
+      required:
+        - blueprint
+        - teamId
+        - scheduling
+      properties:
+        blueprint:
+          type: string
+          description: Scenario blueprint in JSON string form.
+        teamId:
+          type: integer
+          description: Team identifier that owns the scenario.
+        scheduling:
+          type: string
+          description: Scheduling definition in JSON string form.
+        folderId:
+          type: integer
+        basedon:
+          type: integer
+          description: Template ID the scenario is based on.
+
+    ScenarioUpdateRequest:
+      type: object
+      properties:
+        blueprint:
+          type: string
+        scheduling:
+          type: string
+        folderId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+
+    ScenarioRunRequest:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+          description: Input data required by scenario inputs.
+        responsive:
+          type: boolean
+          description: |
+            If true, the call waits for scenario execution until completion (max 40s).
+
+    ScenarioActionResponse:
+      type: object
+      properties:
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+
+paths:
+  /scenarios:
+    get:
+      tags: [Scenarios]
+      summary: List scenarios
+      operationId: listScenarios
+      parameters:
+        - name: teamId
+          in: query
+          required: true
+          description: Team ID whose scenarios are retrieved.
+          schema:
+            type: integer
+        - name: organizationId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: folderId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Retrieved scenarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioList'
+    post:
+      tags: [Scenarios]
+      summary: Create scenario
+      operationId: createScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScenarioCreateRequest'
+      parameters:
+        - name: confirmed
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Scenario created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioActionResponse'
+
+  /scenarios/{scenarioId}:
+    parameters:
+      - name: scenarioId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Scenarios]
+      summary: Get scenario details
+      operationId: getScenario
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioActionResponse'
+    patch:
+      tags: [Scenarios]
+      summary: Update scenario
+      operationId: updateScenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScenarioUpdateRequest'
+      parameters:
+        - name: confirmed
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Scenario updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioActionResponse'
+    delete:
+      tags: [Scenarios]
+      summary: Delete scenario
+      operationId: deleteScenario
+      responses:
+        '200':
+          description: Scenario deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scenario:
+                    type: integer
+                    example: 1399
+
+  /scenarios/{scenarioId}/start:
+    parameters:
+      - name: scenarioId
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Scenarios]
+      summary: Activate scenario
+      operationId: activateScenario
+      responses:
+        '200':
+          description: Scenario activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioActionResponse'
+
+  /scenarios/{scenarioId}/stop:
+    parameters:
+      - name: scenarioId
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Scenarios]
+      summary: Deactivate scenario
+      operationId: deactivateScenario
+      responses:
+        '200':
+          description: Scenario deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioActionResponse'
+
+  /scenarios/{scenarioId}/run:
+    parameters:
+      - name: scenarioId
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      tags: [Scenarios]
+      summary: Run scenario
+      operationId: runScenario
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScenarioRunRequest'
+      responses:
+        '200':
+          description: Scenario execution started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: queued
+                  executionId:
+                    type: integer
